@@ -28,13 +28,14 @@ namespace Company.Function
 
             HttpClient httpClient = new HttpClient();
 
-            var datasets = new List<Datasets>();
-            var reportIds = new List<Reports>();
+            var datasets = new Dictionary<string, string>();
+            var reportIds = new Dictionary<string, string>();
 
             foreach(var report in reports){
-                datasets.Add(new Datasets { id = report.dataSetsId});
-                reportIds.Add(new Reports { id = report.reportId});
+                datasets.Add("id",report.dataSetsId);
+                reportIds.Add("id",report.reportId);
             };
+
 
             var powerBI_API_URL = "api.powerbi.com";
             var powerBI_API_Scope = "https://analysis.windows.net/powerbi/api/.default";
@@ -76,51 +77,51 @@ namespace Company.Function
             //     new KeyValuePair<string, string>("accessLevel", "View")
             // });
 
-            object data = new {
-                datasets = datasets,
-                reports = reportIds
-            };
+            // var data = new {
+            //     datasets = datasets,
+            //     reports = reportIds
+            // };
 
-            var dataString = JsonConvert.SerializeObject(data);
-            var stringContent = new StringContent(dataString);
+            // var dataString = JsonConvert.SerializeObject(data);
+            // var stringContent = new StringContent(dataString);
             // stringContent.Headers.Remove("content-type");
 
-            var embedToken = await httpClient.PostAsync($"https://{powerBI_API_URL}/v1.0/myorg/GenerateToken", stringContent)
-                .ContinueWith<string>((response) =>
-                {
-                    log.LogInformation(response.Result.StatusCode.ToString());
-                    log.LogInformation(response.Result.ReasonPhrase.ToString());
-                    PowerBiEmbedToken powerBiEmbedToken =
-                        JsonConvert.DeserializeObject<PowerBiEmbedToken>(response.Result.Content.ReadAsStringAsync().Result);
-                    return powerBiEmbedToken?.Token;
-                });
+            // var embedToken = await httpClient.PostAsync($"https://{powerBI_API_URL}/v1.0/myorg/GenerateToken", stringContent)
+            //     .ContinueWith<string>((response) =>
+            //     {
+            //         log.LogInformation(response.Result.StatusCode.ToString());
+            //         log.LogInformation(response.Result.ReasonPhrase.ToString());
+            //         PowerBiEmbedToken powerBiEmbedToken =
+            //             JsonConvert.DeserializeObject<PowerBiEmbedToken>(response.Result.Content.ReadAsStringAsync().Result);
+            //         return powerBiEmbedToken?.Token;
+            //     });
 
 
 
-            foreach(var report in reports){
+            // foreach(var report in reports){
 
-                var groupId = report.workspaceId;
-                var reportId = report.reportId;
+            //     var groupId = report.workspaceId;
+            //     var reportId = report.reportId;
                  
-                // Get PowerBi report url
-                httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {accessToken}");
-                var embedUrl =
-                    await httpClient.GetAsync($"https://{powerBI_API_URL}/v1.0/myorg/groups/{groupId}/reports/{reportId}")
-                    .ContinueWith<string>((response) =>
-                    {
-                        log.LogInformation(response.Result.StatusCode.ToString());
-                        log.LogInformation(response.Result.ReasonPhrase.ToString());
-                        PowerBiReport report =
-                            JsonConvert.DeserializeObject<PowerBiReport>(response.Result.Content.ReadAsStringAsync().Result);
-                        return report?.EmbedUrl;
-                    });
+            //     // Get PowerBi report url
+            //     httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {accessToken}");
+            //     var embedUrl =
+            //         await httpClient.GetAsync($"https://{powerBI_API_URL}/v1.0/myorg/groups/{groupId}/reports/{reportId}")
+            //         .ContinueWith<string>((response) =>
+            //         {
+            //             log.LogInformation(response.Result.StatusCode.ToString());
+            //             log.LogInformation(response.Result.ReasonPhrase.ToString());
+            //             PowerBiReport report =
+            //                 JsonConvert.DeserializeObject<PowerBiReport>(response.Result.Content.ReadAsStringAsync().Result);
+            //             return report?.EmbedUrl;
+            //         });
 
-                report.embedUrl = embedUrl;
-                report.accessToken = accessToken;
-                report.embedToken = embedToken;
+            //     report.embedUrl = embedUrl;
+            //     report.accessToken = accessToken;
+            //     report.embedToken = embedToken;
 
 
-            };
+            // };
 
             //         // Get PowerBi report url
             //         // HttpClient powerBiClient = new HttpClient();
