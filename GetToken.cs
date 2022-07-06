@@ -33,8 +33,8 @@ namespace Company.Function
             var powerBI_API_Scope = "https://analysis.windows.net/powerbi/api/.default";
 
             // Lines 35-63 are for using a Service Principal Account to authenticate to Azure AD - 
-            //in production this requires the purchase of a Capacity
-            // Azure App Registration
+            //in production this requires the purchase of a Capacity.
+            // Variables for Azure App Registration
             string clientId = Environment.GetEnvironmentVariable("ClientId");
             string clientSecret = Environment.GetEnvironmentVariable("ClientSecret");
             string tenantId = Environment.GetEnvironmentVariable("TenantId");
