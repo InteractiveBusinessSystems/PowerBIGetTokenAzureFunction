@@ -22,66 +22,38 @@ namespace Company.Function
             [HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)] HttpRequest req,
             ILogger log)
         {
-
-            StreamReader sr = new StreamReader(req.Body);
-            string json = sr.ReadToEnd();
+            try {
+                
+            string json = string.Empty;
+            using (StreamReader sr = new StreamReader(req.Body)) {
+                json = await sr.ReadToEndAsync();
+            }
             var reports = JsonConvert.DeserializeObject<List<Report>>(json);
 
             HttpClient httpClient = new HttpClient();
 
             var powerBI_API_URL = "api.powerbi.com";
             var powerBI_API_Scope = "https://analysis.windows.net/powerbi/api/.default";
+            var powerBI_API_Resource = "https://analysis.windows.net/powerbi/api";
 
-            // Lines 35-63 are for using a Service Principal Account to authenticate to Azure AD - 
-            //in production this requires the purchase of a Capacity.
-            // Variables for Azure App Registration
-            string clientId = Environment.GetEnvironmentVariable("ClientId");
-            string clientSecret = Environment.GetEnvironmentVariable("ClientSecret");
-            string tenantId = Environment.GetEnvironmentVariable("TenantId");
-
-            var content = new FormUrlEncodedContent(new[]
-                {
-                    new KeyValuePair<string, string>("grant_type", "client_credentials"),
-                    new KeyValuePair<string, string>("client_id", clientId),
-                    new KeyValuePair<string, string>("scope", powerBI_API_Scope),
-                    new KeyValuePair<string, string>("client_secret", clientSecret)
-                    });
-
-
-            // Generate Access Token to authenticate for Power BI
-            var accessToken = await httpClient.PostAsync($"https://login.microsoftonline.com/{tenantId}/oauth2/v2.0/token", content).ContinueWith<string>((response) =>
-           {
-               log.LogInformation(response.Result.StatusCode.ToString());
-               log.LogInformation(response.Result.ReasonPhrase.ToString());
-               log.LogInformation(response.Result.Content.ReadAsStringAsync().Result);
-               AzureAdTokenResponse tokenRes =
-                   JsonConvert.DeserializeObject<AzureAdTokenResponse>(response.Result.Content.ReadAsStringAsync().Result);
-               return tokenRes?.AccessToken; ;
-           });
-
-        //     //Lines 66-96 are for using a Master User account, but I haven't figured out how to make that work yet
-        //     // Use a Master User to Authenticate to AAD
-        //     // Azure App Registration
-        //     // string tenantId = Environment.GetEnvironmentVariable("TenantId");
-        //     // string clientId = Environment.GetEnvironmentVariable("ClientId");
-        //     // string userName = Environment.GetEnvironmentVariable("UserName");
-        //     // string password = Environmnet.GetEnvironmentVariable("Password");
-        //     SecureString securePassword = new SecureString();
-        //     foreach (var key in password){
-        //         securePassword.AppendChar(key);
-        //     }
+        //     // Lines 35-63 are for using a Service Principal Account to authenticate to Azure AD - 
+        //     //in production this requires the purchase of a Capacity.
+        //     // Variables for Azure App Registration
+        //     string clientId = Environment.GetEnvironmentVariable("ClientId");
+        //     string clientSecret = Environment.GetEnvironmentVariable("ClientSecret");
+        //     string tenantId = Environment.GetEnvironmentVariable("TenantId");
 
         //     var content = new FormUrlEncodedContent(new[]
         //         {
-        //             new KeyValuePair<string, string>("grant_type", "password"),
+        //             new KeyValuePair<string, string>("grant_type", "client_credentials"),
         //             new KeyValuePair<string, string>("client_id", clientId),
-        //             new KeyValuePair<string, string>("scopes", powerBI_API_Scope),
-        //             new KeyValuePair<string, string>("username", userName),
-        //             new KeyValuePair<string, string>("password", password)
+        //             new KeyValuePair<string, string>("scope", powerBI_API_Scope),
+        //             new KeyValuePair<string, string>("client_secret", clientSecret)
         //             });
 
+
         //     // Generate Access Token to authenticate for Power BI
-        //     var accessToken = await httpClient.PostAsync($"https://login.microsoftonline.com/{tenantId}", content).ContinueWith<string>((response) =>
+        //     var accessToken = await httpClient.PostAsync($"https://login.microsoftonline.com/{tenantId}/oauth2/v2.0/token", content).ContinueWith<string>((response) =>
         //    {
         //        log.LogInformation(response.Result.StatusCode.ToString());
         //        log.LogInformation(response.Result.ReasonPhrase.ToString());
@@ -90,6 +62,42 @@ namespace Company.Function
         //            JsonConvert.DeserializeObject<AzureAdTokenResponse>(response.Result.Content.ReadAsStringAsync().Result);
         //        return tokenRes?.AccessToken; ;
         //    });
+
+            //Lines 66-96 are for using a Master User account, but I haven't figured out how to make that work yet
+            // Use a Master User to Authenticate to AAD
+            // Azure App Registration
+            string tenantId = Environment.GetEnvironmentVariable("TenantId");
+            string clientId = Environment.GetEnvironmentVariable("ClientId");
+            string userName = Environment.GetEnvironmentVariable("MUUsername");
+            string password = Environment.GetEnvironmentVariable("MUPassword");
+            string clientSecret = Environment.GetEnvironmentVariable("ClientSecret");
+
+            var accessToken = string.Empty;
+
+            using (var content = new FormUrlEncodedContent(new[]
+                {
+                    new KeyValuePair<string, string>("grant_type", "password"),
+                    new KeyValuePair<string, string>("client_id", clientId),
+                    new KeyValuePair<string, string>("scopes", powerBI_API_Scope),
+                    new KeyValuePair<string, string>("username", userName),
+                    new KeyValuePair<string, string>("password", password),
+                    new KeyValuePair<string, string>("resource",powerBI_API_Resource),
+                    new KeyValuePair<string, string>("client_secret", clientSecret)
+                    })) {
+                            // Generate Access Token to authenticate for Power BI
+                            accessToken = await httpClient.PostAsync($"https://login.microsoftonline.com/{tenantId}/oauth2/token", content).ContinueWith<string>((response) =>
+                        {
+                            log.LogInformation(response.Result.StatusCode.ToString());
+                            log.LogInformation(response.Result.ReasonPhrase.ToString());
+                            log.LogInformation(response.Result.Content.ReadAsStringAsync().Result);
+                            AzureAdTokenResponse tokenRes =
+                                JsonConvert.DeserializeObject<AzureAdTokenResponse>(response.Result.Content.ReadAsStringAsync().Result);
+                            return tokenRes?.AccessToken; ;
+                        });
+                    }
+                if(string.IsNullOrWhiteSpace(accessToken)) {
+                    return new ObjectResult("Unable to obtain access token") {StatusCode = 401};
+                }
 
            //Add accessToken to header for Http calls
             httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {accessToken}");
@@ -149,6 +157,10 @@ namespace Company.Function
             //Serialize and return the new reports array
             string jsonp = JsonConvert.SerializeObject(reports);
             return new OkObjectResult(jsonp);
+            } catch (Exception e) {
+                log.LogError(e.Message);
+                return new ObjectResult("There was an error obtaining reports, please contact your network administrator") {StatusCode = 500};
+            }
         }
         public class AzureAdTokenResponse
         {
